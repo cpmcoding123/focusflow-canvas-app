@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusFlow — ADHD Calendar for Canvas</title>
+  <meta name="theme-color" content="#1f2937">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#111827; /* gray-900 */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#f8fafc;
+      --accent:#4f46e5; /* indigo-600 */
+      --accent-2:#10b981; /* emerald-500 */
+      --warn:#f59e0b; /* amber-500 */
+      --danger:#ef4444; /* red-500 */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--panel);position:sticky;top:0;z-index:50;border-bottom:1px solid #1f2937}
+    .brand{display:flex;gap:10px;align-items:center}
+    .brand h1{font-size:1.1rem;margin:0}
+    .pill{padding:6px 10px;border-radius:999px;background:#1f2937;color:var(--muted);font-size:.8rem}
+    main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px;flex:1}
+    @media (max-width: 900px){ main{grid-template-columns:1fr} #sidebar{order:2} #calendar{order:1}}
+    #sidebar{background:var(--panel);border:1px solid #1f2937;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px}
+    #calendar{background:var(--panel);border:1px solid #1f2937;border-radius:12px;padding:12px;min-height:60vh}
+    h2{font-size:1rem;margin:0 0 4px 0}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    input,select,button,textarea{background:#0b1220;border:1px solid #1f2937;color:var(--text);padding:10px;border-radius:10px;font-size:.95rem}
+    button{cursor:pointer}
+    button.primary{background:var(--accent);border-color:transparent}
+    button.ghost{background:transparent;border-color:#334155}
+    .task{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:10px;border:1px solid #1f2937;border-radius:10px;background:#0b1220}
+    .task .meta{display:flex;gap:8px;align-items:center;font-size:.85rem;color:var(--muted)}
+    .badge{padding:2px 8px;border-radius:999px;font-size:.75rem}
+    .badge.now{background:var(--danger)}
+    .badge.next{background:var(--warn); color:#111}
+    .badge.later{background:var(--accent-2); color:#111}
+    .section{display:flex;flex-direction:column;gap:8px}
+    .list{display:flex;flex-direction:column;gap:6px;max-height:250px;overflow:auto}
+    .kbd{padding:1px 6px;border:1px solid #374151;border-bottom-width:3px;border-radius:6px;font-size:.8rem;color:var(--muted)}
+    .focus-card{background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+    .timer{font-size:2rem;font-weight:700}
+    .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .cell{border:1px solid #1f2937;border-radius:8px;padding:8px;min-height:80px;background:#0b1220;display:flex;flex-direction:column;gap:4px}
+    .cell h3{margin:0 0 6px 0;font-size:.85rem;color:var(--muted);font-weight:600}
+    .chip{font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 6px;border-radius:8px;background:#111827;border:1px dashed #334155}
+    .muted{color:var(--muted)}
+    .link{color:#a5b4fc;text-decoration:none}
+    footer{padding:10px 16px;border-top:1px solid #1f2937;color:var(--muted);font-size:.85rem;background:var(--panel)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img src="icons/icon-192.png" width="28" height="28" alt="logo">
+      <h1>FocusFlow</h1>
+      <span class="pill">ADHD-friendly</span>
+    </div>
+    <div class="row">
+      <button id="btnFocus" class="primary">Focus Mode</button>
+      <button id="btnExport" class="ghost">Export .ics</button>
+      <button id="btnSettings" class="ghost">Settings</button>
+    </div>
+  </header>
+
+  <main>
+    <aside id="sidebar">
+      <div class="section">
+        <h2>Add Task</h2>
+        <div class="row">
+          <input id="taskTitle" placeholder="Do the thing (be specific)">
+        </div>
+        <div class="row">
+          <input id="taskWhen" type="datetime-local">
+          <select id="taskPriority">
+            <option value="now">Now</option>
+            <option value="next" selected>Next</option>
+            <option value="later">Later</option>
+          </select>
+        </div>
+        <div class="row">
+          <input id="taskCategory" placeholder="Category (School/Work/Family)">
+          <input id="taskEstimate" type="number" min="1" max="12" value="1" style="width:90px" title="Estimated pomodoros">
+        </div>
+        <div class="row">
+          <label><input id="taskRepeat" type="checkbox"> Repeat weekly</label>
+        </div>
+        <div class="row">
+          <button id="btnAdd" class="primary">Add</button>
+          <button id="btnClear" class="ghost">Clear</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Do Next</h2>
+        <div id="nextList" class="list"></div>
+      </div>
+
+      <div class="section">
+        <h2>Focus</h2>
+        <div class="focus-card">
+          <div id="focusTitle" class="muted">Pick a task and hit Focus Mode.</div>
+          <div class="row"><span id="timer" class="timer">25:00</span>
+            <button id="btnStart" class="primary">Start</button>
+            <button id="btnReset" class="ghost">Reset</button>
+          </div>
+          <div class="row">
+            <span class="kbd">Space</span> start/pause &nbsp; <span class="kbd">N</span> new task
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Canvas</h2>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+          <input id="canvasBaseUrl" placeholder="https://yourinstitution.instructure.com">
+          <input id="canvasToken" placeholder="Paste your Canvas access token">
+          <button id="btnSync" class="ghost">Import Upcoming Assignments</button>
+          <div id="canvasStatus" class="muted"></div>
+        </div>
+      </div>
+    </aside>
+
+    <section id="calendar">
+      <div class="row" style="justify-content:space-between">
+        <div class="row">
+          <button id="prevWeek" class="ghost">◀</button>
+          <h2 id="weekLabel"></h2>
+          <button id="nextWeek" class="ghost">▶</button>
+        </div>
+        <div class="row">
+          <select id="filter">
+            <option value="all">All</option>
+            <option value="now">Now</option>
+            <option value="next">Next</option>
+            <option value="later">Later</option>
+          </select>
+          <input id="search" placeholder="Search">
+        </div>
+      </div>
+      <div id="grid" class="grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <footer>
+    Pro tip: keep it simple. Capture quickly, pick one “Do Next,” and press Start. Your brain will thank you.
+  </footer>
+
+  <dialog id="settings">
+    <form method="dialog" style="min-width:320px">
+      <h3>Settings</h3>
+      <label style="display:block;margin:8px 0">Default focus minutes
+        <input id="optMinutes" type="number" min="5" max="60" value="25">
+      </label>
+      <label style="display:block;margin:8px 0">Nudge minutes before due
+        <input id="optNudge" type="number" min="0" max="120" value="10">
+      </label>
+      <div class="row" style="justify-content:flex-end;margin-top:10px">
+        <button value="cancel" class="ghost">Close</button>
+        <button id="saveSettings" value="default" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
